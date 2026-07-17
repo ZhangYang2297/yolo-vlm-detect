@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}告警记录 - AI视频智能分析系统{% endblock %}
+{% block content %}
+<h3 class="mb-4"><i class="bi bi-exclamation-triangle"></i> 告警记录</h3>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" id="filter-severity">
+                    <option value="">全部级别</option>
+                    <option value="critical">严重</option>
+                    <option value="warning">警告</option>
+                    <option value="info">提示</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" id="filter-status">
+                    <option value="">全部状态</option>
+                    <option value="pending">待处理</option>
+                    <option value="confirmed">已确认</option>
+                    <option value="false_alarm">误报</option>
+                    <option value="handled">已处理</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary btn-sm w-100" onclick="loadAlarms()"><i class="bi bi-search"></i> 筛选</button>
+            </div>
+            <div class="col-md-4 text-end">
+                <span class="text-muted small">共 <span id="total-count">0</span> 条记录</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="alarm-list"></div>
+
+<nav><ul class="pagination justify-content-center" id="pagination"></ul></nav>
+
+<!-- 告警详情模态框 -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">告警详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detail-content"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+
+async function loadAlarms(page = 1) {
+    currentPage = page;
+    const severity = document.getElementById('filter-severity').value;
+    const status = document.getElementById('filter-status').value;
+    const params = new URLSearchParams({page, per_page: 20});
+    if (severity) params.set('severity', severity);
+    if (status) params.set('status', status);
+    
+    const resp = await fetch(`/api/alarms?${params}`);
+    const data = await resp.json();
+    document.getElementById('total-count').textContent = data.total;
+    
+    const container = document.getElementById('alarm-list');
+    if (data.items.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-5">暂无告警记录</div>';
+        return;
+    }
+    
+    container.innerHTML = data.items.map(a => {
+        const severityClass = a.severity === 'critical' ? 'alarm-critical' : 
+                             a.severity === 'warning' ? 'alarm-warning' : 'alarm-info';
+        const badgeClass = a.severity === 'critical' ? 'bg-danger' : 
+                          a.severity === 'warning' ? 'bg-warning text-dark' : 'bg-info';
+        const statusBadge = {
+            'pending': 'bg-secondary', 'confirmed': 'bg-success',
+            'false_alarm': 'bg-dark', 'handled': 'bg-primary'
+        }[a.status] || 'bg-secondary';
+        const time = new Date(a.created_at).toLocaleString('zh-CN');
+        
+        return `
+        <div class="card mb-2 ${severityClass}">
+            <div class="card-body py-3">
+                <div class="row align-items-center">
+                    <div class="col-md-1 text-center">
+                        ${a.image_url 
+                            ? `<img src="${a.image_url}" class="img-thumbnail" style="width:80px;height:60px;object-fit:cover;cursor:pointer;" onclick="showDetail(${a.id})">` 
+                            : '<i class="bi bi-image text-muted" style="font-size:2rem;"></i>'}
+                    </div>
+                    <div class="col-md-8">
+                        <strong>${a.title}</strong>
+                        <span class="badge ${badgeClass} ms-1">${a.severity}</span>
+                        <span class="badge ${statusBadge} ms-1">${a.status}</span>
+                        <span class="badge bg-light text-dark ms-1">${a.alarm_type}</span>
+                        <br>
+                        <small class="text-muted">${time} · ${a.task_name || '任务'+a.task_id} · 置信度 ${(a.confidence*100).toFixed(0)}%</small>
+                        ${a.description ? `<br><small class="text-muted">${a.description}</small>` : ''}
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <button class="btn btn-sm btn-outline-primary" onclick="showDetail(${a.id})">详情</button>
+                        <div class="btn-group btn-group-sm mt-1">
+                            <button class="btn btn-outline-success" onclick="reviewAlarm(${a.id}, 'confirmed')" title="确认告警"><i class="bi bi-check-lg"></i></button>
+                            <button class="btn btn-outline-secondary" onclick="reviewAlarm(${a.id}, 'false_alarm')" title="标记误报"><i class="bi bi-x-lg"></i></button>
+                            <button class="btn btn-outline-info" onclick="reviewAlarm(${a.id}, 'handled')" title="已处理"><i class="bi bi-check-all"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+    
+    renderPagination(data.page, data.pages);
+}
+
+function renderPagination(current, total) {
+    const ul = document.getElementById('pagination');
+    if (total <= 1) { ul.innerHTML = ''; return; }
+    let html = '';
+    for (let i = 1; i <= total; i++) {
+        html += `<li class="page-item ${i === current ? 'active' : ''}">
+            <a class="page-link" href="#" onclick="loadAlarms(${i});return false;">${i}</a>
+        </li>`;
+    }
+    ul.innerHTML = html;
+}
+
+async function showDetail(id) {
+    const resp = await fetch(`/api/alarms/${id}`);
+    const a = await resp.json();
+    const content = document.getElementById('detail-content');
+    content.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                ${a.image_url ? `<img src="${a.image_url}" class="img-fluid rounded border">` : ''}
+            </div>
+            <div class="col-md-6">
+                <h5>${a.title}</h5>
+                <table class="table table-sm">
+                    <tr><td>告警类型</td><td>${a.alarm_type}</td></tr>
+                    <tr><td>严重级别</td><td><span class="badge bg-danger">${a.severity}</span></td></tr>
+                    <tr><td>置信度</td><td>${(a.confidence*100).toFixed(1)}%</td></tr>
+                    <tr><td>任务</td><td>${a.task_name}</td></tr>
+                    <tr><td>时间</td><td>${new Date(a.created_at).toLocaleString('zh-CN')}</td></tr>
+                    <tr><td>状态</td><td>${a.status}</td></tr>
+                </table>
+                ${a.detected_behaviors && a.detected_behaviors.length ? 
+                    `<p><strong>检测到的行为：</strong><br>${a.detected_behaviors.map(b=>`<span class="badge bg-warning text-dark me-1">${b}</span>`).join('')}</p>` : ''}
+                ${a.description ? `<p><strong>详细描述：</strong><br>${a.description}</p>` : ''}
+                <details>
+                    <summary class="text-muted small">VLM原始响应</summary>
+                    <pre class="small bg-light p-2 mt-2" style="max-height:200px;overflow:auto;">${a.vlm_raw_response || '无'}</pre>
+                </details>
+            </div>
+        </div>
+    `;
+    new bootstrap.Modal(document.getElementById('detailModal')).show();
+}
+
+async function reviewAlarm(id, status) {
+    const note = prompt('备注（可选）：') || '';
+    await fetch(`/api/alarms/${id}/review`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status, note})
+    });
+    loadAlarms(currentPage);
+}
+
+loadAlarms(1);
+setInterval(() => loadAlarms(currentPage), 15000);
+</script>
+{% endblock %}

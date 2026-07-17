@@ -1,0 +1,64 @@
+# ========== YOLO 目标检测配置 ==========
+yolo:
+  model: yolov8s.pt
+  device: cuda              # cpu / 0 (GPU编号)
+  confidence: 0.5
+  iou_threshold: 0.45
+  batch_size: 1
+  half: true                # FP16半精度
+  onnx: false               # ONNX Runtime加速
+
+# ========== VLM 大模型配置 ==========
+vlm:
+  base_url: https://api.openai.com/v1
+  model: gpt-4o-mini
+  max_tokens: 1024
+  temperature: 0.1
+  timeout: 30
+  max_retries: 2
+  enable_cache: true
+  cache_ttl: 300            # 缓存有效期(秒)
+  cache_similarity_threshold: 5  # pHash汉明距离阈值
+
+# ========== 队列配置 ==========
+queue:
+  vlm_task_queue: "vlm:tasks"
+  audio_task_queue: "audio:tasks"
+  alarm_save_queue: "alarm:save"
+  result_prefix: "result:"
+  result_ttl: 3600
+
+# ========== 分析模式配置 ==========
+analysis:
+  mode: small_crop          # small_only / small_crop / small_full / temporal
+  vlm_interval: 2.0         # VLM分析间隔(秒)
+  temporal_window: 5.0      # 时序窗口(秒)
+  temporal_frames: 8        # 时序采样帧数
+
+# ========== 音频分析配置 ==========
+audio:
+  enabled: true
+  sample_rate: 16000
+  chunk_duration: 5.0       # 音频块时长(秒)
+  abnormal_threshold: 0.6   # 异响初筛阈值
+  vlm_confirm: true         # 初筛异常交给VLM确认
+
+# ========== Chroma向量库配置 ==========
+chroma:
+  persist_path: ./data/vectors
+  collection_name: safety_rules
+  embedding_model: all-MiniLM-L6-v2
+
+# ========== 可观测性配置 ==========
+observability:
+  log_level: INFO
+  metrics_enabled: true
+  dashboard_refresh: 5      # 大盘刷新间隔(秒)
+  perf_collect_interval: 5  # 性能采集间隔(秒)
+
+# ========== 存储配置 ==========
+storage:
+  keep_days: 30             # 告警记录保留天数
+  alarm_image_path: alarms/images
+  alarm_video_path: alarms/videos
+  alarm_audio_path: alarms/audio

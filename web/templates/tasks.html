@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}分析任务 - AI视频智能分析系统{% endblock %}
+{% block content %}
+<h3 class="mb-4"><i class="bi bi-list-task"></i> 分析任务管理</h3>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul"></i> 任务列表</span>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createModal">
+            <i class="bi bi-plus"></i> 新建任务
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="tasks-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th><th>名称</th><th>视频源</th><th>检测类别</th>
+                        <th>模式</th><th>音频</th><th>告警数</th><th>状态</th><th>操作</th>
+                    </tr>
+                </thead>
+                <tbody><tr><td colspan="9" class="text-center text-muted py-4">加载中...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 新建任务模态框 -->
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">创建分析任务</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="create-task-form">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small">任务名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" name="name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">源类型</label>
+                            <select class="form-select form-select-sm" name="source_type">
+                                <option value="video">本地视频文件</option>
+                                <option value="stream">RTSP流</option>
+                                <option value="camera">本地摄像头</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-2 mt-2">
+                        <label class="form-label small">视频源地址/路径 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" name="source_url" 
+                               placeholder="例如: ./demo/test.mp4 或 rtsp://... 或 0" required>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small">检测类别</label>
+                            <select class="form-select form-select-sm" name="detect_classes" multiple size="4">
+                                <option value="person" selected>person (人)</option>
+                                <option value="car">car (汽车)</option>
+                                <option value="truck">truck (卡车)</option>
+                                <option value="motorcycle">motorcycle (摩托车)</option>
+                                <option value="bicycle">bicycle (自行车)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">分析模式</label>
+                            <select class="form-select form-select-sm" name="vlm_mode">
+                                <option value="small_crop" selected>裁剪分析</option>
+                                <option value="small_full">全帧分析</option>
+                                <option value="temporal">时序分析</option>
+                            </select>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="audio_enabled" checked>
+                                <label class="form-check-label small">启用音频分析</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-2 mt-2">
+                        <label class="form-label small">场景描述</label>
+                        <textarea class="form-control form-control-sm" name="scene_description" rows="2"
+                                  placeholder="描述监控场景，例如：办公室区域，检测员工违规行为"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary btn-sm">创建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function loadTasks() {
+    const resp = await fetch('/api/tasks');
+    const tasks = await resp.json();
+    const tbody = document.querySelector('#tasks-table tbody');
+    if (tasks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">暂无任务，点击右上角新建</td></tr>';
+        return;
+    }
+    tbody.innerHTML = tasks.map(t => `
+        <tr>
+            <td>${t.id}</td>
+            <td><strong>${t.name}</strong></td>
+            <td><small class="text-muted" title="${t.source_url}">${t.source_url.substring(0, 30)}${t.source_url.length > 30 ? '...' : ''}</small></td>
+            <td><small>${t.detect_classes.join(', ')}</small></td>
+            <td><span class="badge bg-secondary">${t.vlm_mode}</span></td>
+            <td>${t.audio_enabled ? '<i class="bi bi-volume-up text-success"></i>' : '<i class="bi bi-volume-mute text-muted"></i>'}</td>
+            <td><span class="badge bg-danger">${t.alarm_count}</span></td>
+            <td>
+                ${t.enabled 
+                    ? '<span class="badge bg-success"><span class="live-indicator"></span> 运行中</span>' 
+                    : '<span class="badge bg-secondary">已停止</span>'}
+            </td>
+            <td>
+                <button class="btn btn-sm btn-outline-${t.enabled ? 'warning' : 'success'}" onclick="toggleTask(${t.id})">
+                    <i class="bi bi-${t.enabled ? 'pause' : 'play'}"></i>
+                </button>
+                <a href="/alarms?task_id=${t.id}" class="btn btn-sm btn-outline-info"><i class="bi bi-list"></i></a>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteTask(${t.id})"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function toggleTask(id) {
+    await fetch(`/api/tasks/${id}/toggle`, {method: 'POST'});
+    loadTasks();
+}
+
+async function deleteTask(id) {
+    if (!confirm('确认删除此任务？')) return;
+    await fetch(`/api/tasks/${id}`, {method: 'DELETE'});
+    loadTasks();
+}
+
+document.getElementById('create-task-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    data.detect_classes = Array.from(e.target.detect_classes.selectedOptions).map(o => o.value);
+    data.audio_enabled = e.target.audio_enabled.checked;
+    const resp = await fetch('/api/tasks', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    if (resp.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('createModal')).hide();
+        loadTasks();
+    } else {
+        alert('创建失败');
+    }
+});
+
+loadTasks();
+setInterval(loadTasks, 10000);
+</script>
+{% endblock %}

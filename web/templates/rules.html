@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}规范规则管理 - AI视频智能分析系统{% endblock %}
+{% block content %}
+<h3 class="mb-4"><i class="bi bi-file-text"></i> 安全规范文档与RAG规则库</h3>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-upload"></i> 上传规范文档</div>
+            <div class="card-body">
+                <p class="small text-muted">上传安全生产规范PDF文档，系统将自动提取视觉可检规则并向量化。</p>
+                <form id="upload-form">
+                    <div class="mb-2">
+                        <label class="form-label small">选择PDF文件</label>
+                        <input type="file" class="form-control form-control-sm" name="file" accept=".pdf" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">上传并解析</button>
+                </form>
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header"><i class="bi bi-info-circle"></i> 说明</div>
+            <div class="card-body small text-muted">
+                <p>RAG增强工作流：</p>
+                <ol>
+                    <li>上传PDF规范文档</li>
+                    <li>系统提取文本并按条款分块</li>
+                    <li>VLM自动提取视觉可检规则</li>
+                    <li>规则编码存入Chroma向量库</li>
+                    <li>分析任务绑定文档后，推理时自动检索相关规则注入提示词</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-folder"></i> 文档列表</div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0" id="docs-table">
+                    <thead class="table-light"><tr><th>ID</th><th>名称</th><th>状态</th><th>规则数</th><th>操作</th></tr></thead>
+                    <tbody><tr><td colspan="5" class="text-center text-muted py-3">暂无文档，RAG功能待开发</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header"><i class="bi bi-list-check"></i> 提取的规则</div>
+            <div class="card-body">
+                <div class="text-muted small">上传文档并完成解析后，这里将展示提取的视觉可检规则列表。</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    alert('RAG规则引擎功能将在阶段四实现');
+});
+</script>
+{% endblock %}

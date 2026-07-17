@@ -1,0 +1,41 @@
+# 字节编译生成的Python文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# 敏感配置（永远不提交）
+.env
+.env.local
+
+# 数据目录（上传文件、向量库、存储、数据库）
+data/
+*.db
+*.sqlite
+
+# 模型权重（大文件）
+model_weights/*.pt
+model_weights/*.onnx
+model_weights/*.bin
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+.DS_Store
+
+# 临时文件
+*.tmp
+*.log
+temp/

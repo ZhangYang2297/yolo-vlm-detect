@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}监控大盘 - AI视频智能分析系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3><i class="bi bi-speedometer2"></i> 监控大盘</h3>
+    <span class="text-muted small">自动刷新: 每5秒</span>
+</div>
+
+<!-- 统计卡片 -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card metric-card bg-primary text-white">
+            <div class="card-body d-flex align-items-center">
+                <i class="bi bi-play-circle fs-1 me-3 opacity-50"></i>
+                <div>
+                    <h6 class="card-title mb-0">运行中任务</h6>
+                    <h2 class="display-6 mb-0" id="active-tasks">{{ active_tasks }}</h2>
+                    <small>共 {{ total_tasks }} 个任务</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card bg-danger text-white">
+            <div class="card-body d-flex align-items-center">
+                <i class="bi bi-exclamation-octagon fs-1 me-3 opacity-50"></i>
+                <div>
+                    <h6 class="card-title mb-0">今日告警</h6>
+                    <h2 class="display-6 mb-0" id="today-alarms">{{ today_alarms }}</h2>
+                    <small>待处理: {{ pending_alarms }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card bg-success text-white">
+            <div class="card-body d-flex align-items-center">
+                <i class="bi bi-archive fs-1 me-3 opacity-50"></i>
+                <div>
+                    <h6 class="card-title mb-0">累计告警</h6>
+                    <h2 class="display-6 mb-0" id="total-alarms">{{ total_alarms }}</h2>
+                    <small>系统启动至今</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card bg-dark text-white">
+            <div class="card-body d-flex align-items-center">
+                <i class="bi bi-cpu fs-1 me-3 opacity-50"></i>
+                <div>
+                    <h6 class="card-title mb-0">系统负载</h6>
+                    <div style="font-size: 14px; line-height: 1.8;">
+                        <div>VLM队列: <span id="vlm-queue" class="badge bg-secondary">0</span></div>
+                        <div>告警队列: <span id="alarm-queue" class="badge bg-secondary">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- 新建任务 -->
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-plus-circle"></i> 创建新分析任务
+            </div>
+            <div class="card-body">
+                <form id="create-task-form">
+                    <div class="mb-2">
+                        <label class="form-label small">任务名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" name="name" placeholder="例如：大门监控" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">视频源地址/文件路径 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" name="source_url" 
+                               placeholder="0(摄像头) 或 视频文件路径 或 rtsp://..." required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">检测类别</label>
+                        <select class="form-select form-select-sm" name="detect_classes" multiple size="3">
+                            <option value="person" selected>人 (person)</option>
+                            <option value="car">汽车 (car)</option>
+                            <option value="truck">卡车 (truck)</option>
+                            <option value="motorcycle">摩托车</option>
+                            <option value="helmet">安全帽(需自定义模型)</option>
+                        </select>
+                        <div class="form-text">按住Ctrl多选</div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">场景描述</label>
+                        <textarea class="form-control form-control-sm" name="scene_description" rows="2" 
+                                  placeholder="例如：办公室区域，检测员工违规行为"></textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">分析模式</label>
+                        <select class="form-select form-select-sm" name="vlm_mode">
+                            <option value="small_crop" selected>裁剪分析（快，省算力）</option>
+                            <option value="small_full">全帧分析（慢，全画面）</option>
+                            <option value="temporal">时序分析（动作识别）</option>
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="audio_enabled" id="audioEnabled" checked>
+                        <label class="form-check-label small" for="audioEnabled">启用音频异常检测</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-play-fill"></i> 创建并启动任务
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 最近告警 -->
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-clock-history"></i> 最近告警
+                <a href="/alarms" class="btn btn-link btn-sm float-end">查看全部</a>
+            </div>
+            <div class="card-body p-0" style="max-height: 500px; overflow-y: auto;">
+                <div id="recent-alarms" class="list-group list-group-flush">
+                    <div class="text-center text-muted py-4">暂无告警数据</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function updateDashboard() {
+    try {
+        const resp = await fetch('/api/metrics/snapshot');
+        const data = await resp.json();
+        document.getElementById('vlm-queue').textContent = data.vlm_queue_size;
+        document.getElementById('alarm-queue').textContent = data.alarm_queue_size;
+    } catch(e) {}
+
+    try {
+        const resp = await fetch('/api/alarms?per_page=10');
+        const data = await resp.json();
+        const container = document.getElementById('recent-alarms');
+        if (data.items.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-4">暂无告警数据</div>';
+            return;
+        }
+        container.innerHTML = data.items.map(a => {
+            const severityClass = a.severity === 'critical' ? 'alarm-critical' : 
+                                 a.severity === 'warning' ? 'alarm-warning' : 'alarm-info';
+            const badgeClass = a.severity === 'critical' ? 'bg-danger' : 
+                              a.severity === 'warning' ? 'bg-warning text-dark' : 'bg-info';
+            const time = new Date(a.created_at).toLocaleString('zh-CN');
+            return `
+                <div class="list-group-item ${severityClass}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>${a.title}</strong>
+                            <span class="badge ${badgeClass} ms-1">${a.severity}</span>
+                            <br><small class="text-muted">${time} · ${a.task_name} · 置信度 ${(a.confidence*100).toFixed(0)}%</small>
+                            ${a.description ? `<br><small>${a.description}</small>` : ''}
+                        </div>
+                        ${a.image_url ? `<img src="${a.image_url}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;">` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch(e) {}
+}
+
+document.getElementById('create-task-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    data.detect_classes = Array.from(e.target.detect_classes.selectedOptions).map(o => o.value);
+    data.audio_enabled = e.target.audio_enabled.checked;
+    const resp = await fetch('/api/tasks', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    if (resp.ok) {
+        alert('任务创建成功！');
+        location.reload();
+    } else {
+        alert('创建失败');
+    }
+});
+
+setInterval(updateDashboard, 5000);
+updateDashboard();
+</script>
+{% endblock %}
