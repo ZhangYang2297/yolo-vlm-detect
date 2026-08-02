@@ -1,0 +1,8 @@
+<div class="sidebar-panel{% if active %} active{% endif %}" id="panel-events">
+    <div class="event-log" id="eventLog">
+        <div style="color:var(--text-dim);font-size:11px;text-align:center;padding:40px 0">
+            No events yet. Upload a video and start analysis.
+        </div>
+    </div>
+    {% block extra_events %}{% endblock %}
+</div>

@@ -1,0 +1,65 @@
+<div class="sidebar-panel{% if active %} active{% endif %}" id="panel-metrics">
+    <div class="metric-group">
+        <div class="metric-group-title">Inference</div>
+        <div class="metric-grid">
+            <div class="metric-item">
+                <div class="label">FPS</div>
+                <div class="value accent" id="mFps">--<span class="unit">fps</span></div>
+            </div>
+            <div class="metric-item">
+                <div class="label">P95 Latency</div>
+                <div class="value info" id="mP95">--<span class="unit">ms</span></div>
+            </div>
+            <div class="metric-item full">
+                <div class="label">Pipeline</div>
+                <div class="sub" id="mPipeline">Pre: -- / Inf: -- / Post: --</div>
+            </div>
+            <div class="metric-item">
+                <div class="label">Processed</div>
+                <div class="value" id="mProcessed">--</div>
+            </div>
+            <div class="metric-item">
+                <div class="label">Dropped</div>
+                <div class="value warning" id="mDropped">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="metric-group">
+        <div class="metric-group-title">Tracking</div>
+        <div class="metric-grid">
+            <div class="metric-item">
+                <div class="label">Active</div>
+                <div class="value accent" id="mActiveTracks">--</div>
+            </div>
+            <div class="metric-item">
+                <div class="label">Confirmed</div>
+                <div class="value" id="mConfirmedTracks">--</div>
+            </div>
+            <div class="metric-item">
+                <div class="label">Tentative</div>
+                <div class="value" id="mTentativeTracks">--</div>
+            </div>
+            <div class="metric-item">
+                <div class="label">Total Created</div>
+                <div class="value" id="mTotalTracks">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="metric-group">
+        <div class="metric-group-title">Candidate Events</div>
+        <div class="metric-grid">
+            <div class="metric-item">
+                <div class="label">Total</div>
+                <div class="value info" id="mTotalEvents">--</div>
+            </div>
+            <div class="metric-item">
+                <div class="label">Active ROIs</div>
+                <div class="value" id="mActiveRois">--</div>
+            </div>
+        </div>
+    </div>
+
+    {% block extra_metrics %}{% endblock %}
+</div>

@@ -123,6 +123,7 @@ async function loadTasks() {
                     <i class="bi bi-${t.enabled ? 'pause' : 'play'}"></i>
                 </button>
                 <a href="/alarms?task_id=${t.id}" class="btn btn-sm btn-outline-info"><i class="bi bi-list"></i></a>
+                <a href="/live/${t.id}" class="btn btn-sm btn-outline-primary" title="实时处理"><i class="bi bi-camera-video"></i></a>
                 <button class="btn btn-sm btn-outline-danger" onclick="deleteTask(${t.id})"><i class="bi bi-trash"></i></button>
             </td>
         </tr>

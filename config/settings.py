@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
@@ -11,13 +11,14 @@ PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
 
 class YoloConfig(BaseModel):
-    model: str = "yolov8s.pt"
-    device: str = "cuda"
+    model: str = "model_weights/yolov8n.pt"
+    device: str = "cpu"
     confidence: float = 0.5
     iou_threshold: float = 0.45
     batch_size: int = 1
-    half: bool = True
+    half: bool = False
     onnx: bool = False
+    image_size: int = 640
 
 
 class VlmConfig(BaseModel):
@@ -60,6 +61,12 @@ class MediaMTXConfig(BaseModel):
     rtsp_url: str = "rtsp://127.0.0.1:8554"
     webrtc_port: int = 8889
     hls_port: int = 8888
+
+
+class MediaSourceConfig(BaseModel):
+    allowed_dirs: List[str] = Field(default_factory=lambda: ["./data", "./demo"])
+    probe_timeout: int = 15
+    max_file_size_mb: int = 500
 
 
 class QueueConfig(BaseModel):
@@ -117,6 +124,7 @@ class Settings(BaseModel):
     redis: RedisConfig = Field(default_factory=RedisConfig)
     minio: MinioConfig = Field(default_factory=MinioConfig)
     mediamtx: MediaMTXConfig = Field(default_factory=MediaMTXConfig)
+    media: MediaSourceConfig = Field(default_factory=MediaSourceConfig)
     yolo: YoloConfig = Field(default_factory=YoloConfig)
     vlm: VlmConfig = Field(default_factory=VlmConfig)
     queue: QueueConfig = Field(default_factory=QueueConfig)
@@ -136,6 +144,20 @@ def _load_yaml() -> dict:
         with open(yaml_path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     return {}
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(
+        f"Environment variable {name} must be a boolean value, got {value!r}"
+    )
 
 
 def get_settings() -> Settings:
@@ -174,6 +196,7 @@ def get_settings() -> Settings:
                 webrtc_port=int(os.getenv("MEDIAMTX_WEBRTC_PORT", str(yaml_cfg.get("mediamtx", {}).get("webrtc_port", 8889)))),
                 hls_port=int(os.getenv("MEDIAMTX_HLS_PORT", str(yaml_cfg.get("mediamtx", {}).get("hls_port", 8888)))),
             ),
+            media=MediaSourceConfig(**yaml_cfg.get("media", {})),
             yolo=YoloConfig(**yaml_cfg.get("yolo", {})),
             vlm=VlmConfig(**yaml_cfg.get("vlm", {})),
             queue=QueueConfig(**yaml_cfg.get("queue", {})),
@@ -184,18 +207,19 @@ def get_settings() -> Settings:
             storage=StorageConfig(**yaml_cfg.get("storage", {})),
         )
 
-        # VLM API Key 从环境变量覆盖
+        # VLM API Key from environment
         if os.getenv("VLM_API_KEY"):
             _settings.vlm.api_key = os.getenv("VLM_API_KEY")
         if os.getenv("VLM_BASE_URL"):
             _settings.vlm.base_url = os.getenv("VLM_BASE_URL")
         if os.getenv("VLM_MODEL"):
             _settings.vlm.model = os.getenv("VLM_MODEL")
-        # YOLO device 环境变量覆盖
+        # YOLO device from environment
         if os.getenv("YOLO_DEVICE"):
             _settings.yolo.device = os.getenv("YOLO_DEVICE")
         if os.getenv("YOLO_MODEL"):
             _settings.yolo.model = os.getenv("YOLO_MODEL")
+        _settings.yolo.half = _env_bool("YOLO_HALF", _settings.yolo.half)
 
     return _settings
 

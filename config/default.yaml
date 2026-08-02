@@ -1,12 +1,13 @@
 # ========== YOLO 目标检测配置 ==========
 yolo:
-  model: yolov8s.pt
-  device: cuda              # cpu / 0 (GPU编号)
+  model: model_weights/yolov8n.pt
+  device: cpu               # cpu / 0 (GPU编号)
   confidence: 0.5
   iou_threshold: 0.45
   batch_size: 1
   half: true                # FP16半精度
   onnx: false               # ONNX Runtime加速
+  image_size: 640
 
 # ========== VLM 大模型配置 ==========
 vlm:

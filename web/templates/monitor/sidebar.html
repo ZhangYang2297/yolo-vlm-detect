@@ -1,0 +1,10 @@
+<div class="sidebar">
+    <div class="sidebar-tabs">
+        {% for tab in sidebar_tabs %}
+        <div class="tab{% if loop.first %} active{% endif %}" data-tab="{{ tab.id }}">{{ tab.label }}</div>
+        {% endfor %}
+    </div>
+    <div class="sidebar-content">
+        {% block sidebar_panels %}{% endblock %}
+    </div>
+</div>

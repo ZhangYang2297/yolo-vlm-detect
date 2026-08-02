@@ -1,0 +1,166 @@
+{% extends "monitor/base.html" %}
+{% block title %}历史记录 · AI 视频智能分析系统{% endblock %}
+{% block layout %}
+<style>
+    .history-wrap { padding: 24px 28px; height: calc(100vh - var(--topbar-height)); overflow-y: auto; }
+    .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .history-title { font-size: 18px; font-weight: 600; letter-spacing: 1px; }
+    .history-title i { color: var(--accent); margin-right: 8px; }
+    .history-tools { display: flex; gap: 10px; align-items: center; }
+    .history-input { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 12px; border-radius: 4px; font-size: 12px; width: 220px; }
+    .history-input:focus { outline: none; border-color: var(--accent); }
+    .history-select { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 12px; border-radius: 4px; font-size: 12px; }
+    .btn-refresh { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+    .btn-refresh:hover { color: var(--accent); border-color: var(--accent); }
+    .history-table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 6px; overflow: hidden; border: 1px solid var(--border-color); }
+    .history-table th { background: var(--bg-secondary); color: var(--text-dim); font-weight: 500; font-size: 11px; padding: 10px 14px; text-align: left; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
+    .history-table td { padding: 12px 14px; font-size: 12px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
+    .history-table tr:hover td { background: var(--bg-card-hover); }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .history-badge.running { background: var(--accent-dim); color: var(--accent); }
+    .history-badge.stopped { background: rgba(90,106,130,0.2); color: var(--text-secondary); }
+    .history-badge.failed { background: rgba(255,71,87,0.15); color: var(--danger); }
+    .history-badge.created { background: rgba(52,152,255,0.15); color: var(--info); }
+    .history-action { color: var(--accent); text-decoration: none; font-size: 11px; padding: 4px 10px; border: 1px solid var(--accent); border-radius: 3px; transition: all 0.15s; margin-right: 6px; }
+    .history-action:hover { background: var(--accent-dim); }
+    .history-action.danger { color: var(--danger); border-color: var(--danger); }
+    .history-action.danger:hover { background: rgba(255,71,87,0.15); }
+    .history-summary { display: flex; gap: 20px; margin-bottom: 18px; }
+    .summary-card { flex: 1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 14px 18px; }
+    .summary-card-label { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+    .summary-card-value { font-size: 24px; color: var(--accent); font-weight: 600; font-family: var(--font-mono); margin-top: 6px; }
+    .empty-row { text-align: center; padding: 40px 0; color: var(--text-dim); font-size: 13px; }
+</style>
+<div class="history-wrap">
+    <div class="history-header">
+        <div class="history-title"><i class="bi bi-clock-history"></i><span data-i18n="history.title">任务历史</span></div>
+        <div class="history-tools">
+            <input class="history-input" id="filterName" placeholder="搜索任务名..." data-i18n-attr="placeholder:history.search">
+            <select class="history-select" id="filterStatus">
+                <option value="" data-i18n="history.filter.all">全部状态</option>
+                <option value="running" data-i18n="history.filter.running">运行中</option>
+                <option value="stopped" data-i18n="history.filter.stopped">已停止</option>
+                <option value="failed" data-i18n="history.filter.failed">失败</option>
+                <option value="created" data-i18n="history.filter.created">已创建</option>
+            </select>
+            <button class="btn-refresh" id="btnRefresh"><i class="bi bi-arrow-clockwise"></i> <span data-i18n="history.refresh">刷新</span></button>
+        </div>
+    </div>
+
+    <div class="history-summary">
+        <div class="summary-card"><div class="summary-card-label" data-i18n="history.summary.total">任务总数</div><div class="summary-card-value" id="statTotal">-</div></div>
+        <div class="summary-card"><div class="summary-card-label" data-i18n="history.summary.running">运行中</div><div class="summary-card-value" id="statRunning">-</div></div>
+        <div class="summary-card"><div class="summary-card-label" data-i18n="history.summary.alarms">告警总数</div><div class="summary-card-value" id="statAlarms">-</div></div>
+    </div>
+
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th data-i18n="history.col.id">ID</th>
+                <th data-i18n="history.col.name">任务名</th>
+                <th data-i18n="history.col.source">数据源</th>
+                <th data-i18n="history.col.status">状态</th>
+                <th data-i18n="history.col.duration">运行时长</th>
+                <th data-i18n="history.col.alarms">告警数</th>
+                <th data-i18n="history.col.created">创建时间</th>
+                <th data-i18n="history.col.actions">操作</th>
+            </tr>
+        </thead>
+        <tbody id="historyBody">
+            <tr><td colspan="8" class="empty-row" data-i18n="history.loading">加载中…</td></tr>
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    console.log("[history] init script running");
+    const body = document.getElementById("historyBody");
+    const filterName = document.getElementById("filterName");
+    const filterStatus = document.getElementById("filterStatus");
+    const btnRefresh = document.getElementById("btnRefresh");
+    let allTasks = [];
+
+    const STATUS_LABEL = {
+        "running": "recent.item.running", "starting": "recent.item.running",
+        "stopped": "recent.item.stopped", "stopping": "recent.item.stopped",
+        "failed": "recent.item.failed", "created": "recent.item.created",
+    };
+
+    function fmtDuration(start, end) {
+        if (!start) return "—";
+        const s = new Date(start).getTime();
+        const e = end ? new Date(end).getTime() : Date.now();
+        const sec = Math.max(0, Math.floor((e - s) / 1000));
+        if (sec < 60) return sec + "s";
+        if (sec < 3600) return Math.floor(sec / 60) + "m " + (sec % 60) + "s";
+        return Math.floor(sec / 3600) + "h " + Math.floor((sec % 3600) / 60) + "m";
+    }
+    function escHtml(s) { return (s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    function render() {
+        const nameQuery = filterName.value.trim().toLowerCase();
+        const statusQuery = filterStatus.value;
+        const filtered = allTasks.filter(t => {
+            const s = t.latest_run ? t.latest_run.status : "created";
+            if (statusQuery && s !== statusQuery && !(statusQuery === "running" && s === "starting")) return false;
+            if (nameQuery && !(t.name || "").toLowerCase().includes(nameQuery)) return false;
+            return true;
+        });
+        if (filtered.length === 0) {
+            body.innerHTML = '<tr><td colspan="8" class="empty-row">' + window.I18N.t("history.empty") + '</td></tr>';
+            return;
+        }
+        body.innerHTML = filtered.map(t => {
+            const status = t.latest_run ? t.latest_run.status : "created";
+            const badgeClass = ({running:"running",starting:"running",stopped:"stopped",stopping:"stopped",failed:"failed",created:"created"}[status] || "created");
+            const statusLabel = window.I18N.t(STATUS_LABEL[status] || "recent.item.created");
+            const duration = t.latest_run ? fmtDuration(t.latest_run.started_at, t.latest_run.stopped_at) : "—";
+            const created = t.created_at ? new Date(t.created_at).toLocaleString() : "";
+            const src = (t.source_url || "").split(/[\\/]/).pop();
+            return `<tr>
+                <td style="font-family: var(--font-mono); color: var(--text-secondary)">#${t.id}</td>
+                <td>${escHtml(t.name)}</td>
+                <td style="color: var(--text-dim); font-family: var(--font-mono); font-size: 11px">${escHtml(src)}</td>
+                <td><span class="history-badge ${badgeClass}">${statusLabel}</span></td>
+                <td style="font-family: var(--font-mono)">${duration}</td>
+                <td style="color: ${t.alarm_count > 0 ? 'var(--warning)' : 'var(--text-dim)'}">${t.alarm_count || 0}</td>
+                <td style="color: var(--text-dim)">${created}</td>
+                <td>
+                    <a class="history-action" href="/monitor?task_id=${t.id}" data-i18n="history.action.view">查看</a>
+                </td>
+            </tr>`;
+        }).join("");
+    }
+
+    async function load() {
+        body.innerHTML = '<tr><td colspan="8" class="empty-row">' + window.I18N.t("history.loading") + '</td></tr>';
+        try {
+            const res = await fetch("/api/analysis-tasks?limit=100");
+            const b = await res.json();
+            allTasks = (b.success && Array.isArray(b.data)) ? b.data : [];
+            let runningCnt = 0, alarmSum = 0;
+            allTasks.forEach(t => {
+                if (t.latest_run && (t.latest_run.status === "running" || t.latest_run.status === "starting")) runningCnt++;
+                alarmSum += (t.alarm_count || 0);
+            });
+            document.getElementById("statTotal").textContent = allTasks.length;
+            document.getElementById("statRunning").textContent = runningCnt;
+            document.getElementById("statAlarms").textContent = alarmSum;
+            render();
+        } catch (e) {
+            body.innerHTML = '<tr><td colspan="8" class="empty-row">' + (e.message || "load failed") + '</td></tr>';
+        }
+    }
+
+    filterName.addEventListener("input", render);
+    filterStatus.addEventListener("change", render);
+    btnRefresh.addEventListener("click", load);
+    console.log("[history] about to call load()"); load(); console.log("[history] load() called");
+})();
+</script>
+{% endblock %}

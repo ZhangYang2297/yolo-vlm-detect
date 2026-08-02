@@ -38,3 +38,11 @@ def alarms():
 @views_bp.route("/rules")
 def rules():
     return render_template("rules.html")
+
+
+@views_bp.route("/live/<int:task_id>")
+def live_detection(task_id: int):
+    task = db.session.get(AnalysisTask, task_id)
+    if task is None:
+        return "Task not found", 404
+    return render_template("live_detection.html", task=task)

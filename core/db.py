@@ -1,5 +1,6 @@
 from pathlib import Path
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase
 from config.settings import get_settings
@@ -8,6 +9,7 @@ from core.logger import get_logger
 logger = get_logger(__name__)
 
 db = SQLAlchemy()
+migrate = Migrate()
 
 
 class Base(DeclarativeBase):
@@ -23,7 +25,7 @@ def _get_db_uri() -> str:
     )
 
 
-def init_db(app=None):
+def init_db(app=None, create_tables: bool = False):
     settings = get_settings()
     db_uri = _get_db_uri()
 
@@ -36,12 +38,22 @@ def init_db(app=None):
             "pool_pre_ping": True,
         }
         db.init_app(app)
-        with app.app_context():
-            db.create_all()
-            logger.info("mysql_initialized", host=settings.mysql.host, port=settings.mysql.port)
+        if create_tables:
+            with app.app_context():
+                db.create_all()
+                logger.info("mysql_tables_created", host=settings.mysql.host, port=settings.mysql.port)
+        logger.info("mysql_initialized", host=settings.mysql.host, port=settings.mysql.port)
     else:
         engine = create_engine(db_uri, pool_pre_ping=True)
-        Base.metadata.create_all(engine)
+        if create_tables:
+            Base.metadata.create_all(engine)
+            logger.info("mysql_tables_created_standalone", host=settings.mysql.host, port=settings.mysql.port)
         logger.info("mysql_initialized_standalone", host=settings.mysql.host, port=settings.mysql.port)
 
     return db
+
+
+def init_migrate(app):
+    """Registers Flask-Migrate with the app (call after init_db)."""
+    from flask_migrate import Migrate as _Migrate
+    return _Migrate(app, db)

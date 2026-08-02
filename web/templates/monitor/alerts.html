@@ -1,0 +1,15 @@
+{% extends "monitor/base.html" %}
+{% block title %}告警中心 · AI 视频智能分析系统{% endblock %}
+{% block layout %}
+<style>
+    .stub-wrap { display:flex; align-items:center; justify-content:center; height: calc(100vh - var(--topbar-height)); flex-direction: column; gap: 12px; }
+    .stub-icon { font-size: 60px; color: var(--accent); opacity: 0.4; }
+    .stub-title { font-size: 18px; color: var(--text-primary); letter-spacing: 1px; }
+    .stub-hint { font-size: 12px; color: var(--text-dim); }
+</style>
+<div class="stub-wrap">
+    <i class="bi bi-exclamation-triangle stub-icon"></i>
+    <div class="stub-title" data-i18n="nav.alerts">告警中心</div>
+    <div class="stub-hint" data-i18n="stub.hint">即将上线，敬请期待。</div>
+</div>
+{% endblock %}

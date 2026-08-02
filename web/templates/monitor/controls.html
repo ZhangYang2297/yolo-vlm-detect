@@ -1,0 +1,23 @@
+<div class="controls-bar" style="position:fixed;bottom:0;left:0;right:0;z-index:50">
+    {% block controls_left %}
+    <div class="file-input-wrapper">
+        <button class="btn btn-accent" id="uploadBtn">
+            <i class="bi bi-upload"></i> Upload Video
+        </button>
+        <input type="file" id="fileInput" accept=".mp4,.avi,.mov,.mkv,.webm">
+    </div>
+    <button class="btn btn-accent" id="startBtn" disabled>
+        <i class="bi bi-play-fill"></i> Start
+    </button>
+    <button class="btn btn-danger-ghost" id="stopBtn" disabled>
+        <i class="bi bi-stop-fill"></i> Stop
+    </button>
+    <div class="upload-progress" id="uploadProgress">
+        <div class="spinner"></div>
+        <span>Uploading...</span>
+    </div>
+    {% endblock %}
+    {% block controls_right %}
+    <span class="status-text" id="statusText">Ready</span>
+    {% endblock %}
+</div>

@@ -1,0 +1,18 @@
+<div class="video-area" id="videoArea">
+    {% block video_placeholder %}
+    <div class="placeholder" id="placeholder">
+        <i class="bi bi-camera-video"></i>
+        <h5>Upload a video to start analysis</h5>
+        <p>Drag & drop or use the upload button below. Supported formats: MP4, AVI, MOV, MKV</p>
+    </div>
+    {% endblock %}
+    {% block video_stream %}
+    <img id="detectionPreview" style="display:none" alt="Detection Preview">
+    {% endblock %}
+    <div class="video-overlay-info" id="videoOverlay" style="display:none">
+        <span class="tag accent" id="overlayFps">0 FPS</span>
+        <span class="tag" id="overlayTracks">0 tracks</span>
+        <span class="tag" id="overlayFrame">Frame 0</span>
+    </div>
+    {% block video_grid %}{% endblock %}
+</div>

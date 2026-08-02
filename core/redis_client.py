@@ -65,7 +65,8 @@ def dequeue(queue_name: str, timeout: int = 1) -> Optional[dict]:
 def set_result(key: str, data: Any, ttl: int = 3600) -> None:
     try:
         r = get_redis()
-        r.setex(f"result:{key}", ttl, json.dumps(data, ensure_ascii=False, default=str))
+        payload = json.dumps(data, ensure_ascii=False, default=str)
+        r.set(f"result:{key}", payload, ex=ttl)
     except Exception as e:
         logger.error("set_result_failed", key=key, error=str(e))
 

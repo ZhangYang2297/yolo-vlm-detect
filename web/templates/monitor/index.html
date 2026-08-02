@@ -1,0 +1,530 @@
+{% extends "monitor/base.html" %}
+
+{% set task_id = task.id if task else None %}
+
+{% block layout %}
+<div class="app-layout">
+    <!-- Video area -->
+    <div class="video-area" id="videoArea">
+        <div class="placeholder" id="placeholder">
+            <i class="bi bi-camera-video big-icon"></i>
+            <h5 data-i18n="video.placeholder.title">上传视频文件开始分析</h5>
+            <p data-i18n="video.placeholder.desc">支持 MP4 / AVI / MOV / MKV / WEBM 格式，最大 200 MB。也可直接拖拽视频到此处。</p>
+            <div class="flow-steps">
+                <span id="flowStep1" class="doing" data-i18n="flow.step1">1. 上传视频</span>
+                <span id="flowStep2" data-i18n="flow.step2">2. 启动推理</span>
+                <span id="flowStep3" data-i18n="flow.step3">3. 实时检测</span>
+            </div>
+        </div>
+        <img id="detectionPreview" style="display:none" alt="Detection Preview">
+        <div class="preview-error" id="previewError" style="display:none">
+            <i class="bi bi-exclamation-triangle-fill" style="font-size:36px;opacity:0.5"></i>
+            <span data-i18n="preview.error">检测画面暂不可用，请稍后重试。</span>
+            <button class="btn btn-ghost" id="retryPreviewBtn" data-i18n="preview.retry">重试预览</button>
+        </div>
+        <div class="video-overlay-info" id="videoOverlay" style="display:none">
+            <span class="tag accent" id="overlayFps">0 FPS</span>
+            <span class="tag" id="overlayTracks">0 tracks</span>
+            <span class="tag" id="overlayFrame">Frame 0</span>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-tabs">
+            <div class="tab active" data-tab="metrics" data-i18n="sidebar.tab.metrics">监测指标</div>
+            <div class="tab" data-tab="events" data-i18n="sidebar.tab.events">事件日志</div>
+            <div class="tab" data-tab="info" data-i18n="sidebar.tab.info">任务信息</div>
+        </div>
+        <div class="sidebar-content">
+            <div class="sidebar-panel active" id="panel-metrics">
+                <div class="metric-group">
+                    <div class="metric-group-title" data-i18n="metrics.inference">推理性能</div>
+                    <div class="metric-grid">
+                        <div class="metric-item">
+                            <div class="label" data-i18n="metrics.fps">实时帧率</div>
+                            <div class="value accent" id="mFps">--<span class="unit">fps</span></div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="label" data-i18n="metrics.p95">P95 延迟</div>
+                            <div class="value info" id="mP95">--<span class="unit">ms</span></div>
+                        </div>
+                        <div class="metric-item full">
+                            <div class="label" data-i18n="metrics.pipeline">管线耗时</div>
+                            <div class="sub" id="mPipeline" data-i18n="metrics.pipeline.placeholder">预处理 -- / 推理 -- / 后处理 --</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="label" data-i18n="metrics.processed">已处理帧</div>
+                            <div class="value" id="mProcessed">--</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="label" data-i18n="metrics.dropped">丢弃帧</div>
+                            <div class="value warning" id="mDropped">--</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-group">
+                    <div class="metric-group-title" data-i18n="metrics.tracking">目标跟踪</div>
+                    <div class="metric-grid">
+                        <div class="metric-item">
+                            <div class="label" data-i18n="metrics.tracks.active">活跃轨迹</div>
+                            <div class="value accent" id="mActiveTracks">--</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="label" data-i18n="metrics.tracks.confirmed">已确认</div>
+                            <div class="value" id="mConfirmedTracks">--</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="label" data-i18n="metrics.tracks.tentative">试探中</div>
+                            <div class="value" id="mTentativeTracks">--</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="label" data-i18n="metrics.tracks.total">累计创建</div>
+                            <div class="value" id="mTotalTracks">--</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-group">
+                    <div class="metric-group-title" data-i18n="metrics.candidate">候选事件</div>
+                    <div class="metric-grid">
+                        <div class="metric-item">
+                            <div class="label" data-i18n="metrics.events.total">事件总数</div>
+                            <div class="value info" id="mTotalEvents">--</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="label" data-i18n="metrics.rois.active">活跃 ROI</div>
+                            <div class="value" id="mActiveRois">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-panel" id="panel-events">
+                <div class="event-log" id="eventLog">
+                    <div class="event-empty" data-i18n="events.empty">暂无事件。上传视频并开始分析后，检测到的候选事件会显示在这里。</div>
+                </div>
+            </div>
+            <div class="sidebar-panel" id="panel-info">
+                <div class="metric-group">
+                    <div class="metric-group-title" data-i18n="info.task_id">任务信息</div>
+                    <div class="metric-grid">
+                        <div class="metric-item full">
+                            <div class="label" data-i18n="info.task_id">任务编号</div>
+                            <div class="sub" id="infoTaskId">--</div>
+                        </div>
+                        <div class="metric-item full">
+                            <div class="label" data-i18n="info.video">视频文件</div>
+                            <div class="sub" id="infoVideo">--</div>
+                        </div>
+                        <div class="metric-item full">
+                            <div class="label" data-i18n="info.pipeline">推理管线</div>
+                            <div class="sub" id="infoPipeline">--</div>
+                        </div>
+                        <div class="metric-item full">
+                            <div class="label" data-i18n="info.model">模型</div>
+                            <div class="sub" id="infoModel" data-i18n="info.model.value">YOLOv8n（CPU）</div>
+                        </div>
+                        <div class="metric-item full">
+                            <div class="label" data-i18n="info.stream">数据流</div>
+                            <div class="sub" id="infoStream">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Controls bar -->
+<div class="controls-bar">
+    <div class="controls-row top">
+        <div class="btn-group-main">
+            <div class="file-input-wrapper">
+                <button class="btn btn-accent" id="uploadBtn"><i class="bi bi-upload"></i> <span data-i18n="controls.upload">上传视频</span></button>
+                <input type="file" id="fileInput" accept=".mp4,.avi,.mov,.mkv,.webm">
+            </div>
+            <button class="btn btn-accent" id="startBtn" disabled><i class="bi bi-play-fill"></i> <span data-i18n="controls.start">开始分析</span></button>
+            <button class="btn btn-danger-ghost" id="stopBtn" disabled><i class="bi bi-stop-fill"></i> <span data-i18n="controls.stop">停止分析</span></button>
+            <label class="autostart-toggle">
+                <input type="checkbox" id="autostartCheck" checked>
+                <span data-i18n="controls.autostart">上传完成后自动开始</span>
+            </label>
+        </div>
+        <span class="status-text" id="statusText" data-i18n="controls.status.ready">请上传视频文件</span>
+    </div>
+    <div class="controls-row" style="display:flex;align-items:center;gap:10px">
+        <div class="progress-track" id="progressTrack" style="display:none">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <span class="progress-label" id="progressLabel" style="display:none"></span>
+    </div>
+</div>
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const fileInput = document.getElementById("fileInput");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const autostartCheck = document.getElementById("autostartCheck");
+    const statusText = document.getElementById("statusText");
+    const progressTrack = document.getElementById("progressTrack");
+    const progressFill = document.getElementById("progressFill");
+    const progressLabel = document.getElementById("progressLabel");
+    const placeholder = document.getElementById("placeholder");
+    const detectionPreview = document.getElementById("detectionPreview");
+    const previewError = document.getElementById("previewError");
+    const retryPreviewBtn = document.getElementById("retryPreviewBtn");
+    const videoOverlay = document.getElementById("videoOverlay");
+
+    let currentTaskId = null;
+    let isRunning = false;
+    let pollInterval = null;
+    let previewRetryCount = 0;
+    const MAX_PREVIEW_RETRIES = 3;
+
+    // Tab switching
+    document.querySelectorAll(".sidebar-tabs .tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+            document.querySelectorAll(".sidebar-tabs .tab").forEach(t => t.classList.remove("active"));
+            document.querySelectorAll(".sidebar-panel").forEach(p => p.classList.remove("active"));
+            tab.classList.add("active");
+            document.getElementById("panel-" + tab.dataset.tab).classList.add("active");
+        });
+    });
+
+    // --- Upload (XHR with progress) ---
+    fileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        doUpload(file);
+    });
+
+    // Drag & drop
+    const videoArea = document.getElementById("videoArea");
+    videoArea.addEventListener("dragover", (e) => { e.preventDefault(); videoArea.style.borderColor = "var(--accent)"; });
+    videoArea.addEventListener("dragleave", () => { videoArea.style.borderColor = ""; });
+    videoArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        videoArea.style.borderColor = "";
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            doUpload(files[0]);
+        }
+    });
+
+    function doUpload(file) {
+        uploadBtn.disabled = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = true;
+        setStatus("warn", "status.uploading");
+        statusText.textContent = window.I18N.t("controls.status.uploading") + file.name;
+
+        // Show progress
+        progressTrack.style.display = "block";
+        progressLabel.style.display = "block";
+        progressFill.classList.remove("indeterminate");
+        progressFill.style.width = "0%";
+        progressLabel.textContent = "0%";
+
+        // Update flow step
+        document.getElementById("flowStep1").className = "doing";
+        document.getElementById("flowStep2").className = "";
+        document.getElementById("flowStep3").className = "";
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/upload");
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                progressFill.style.width = pct + "%";
+                progressLabel.textContent = pct + "%";
+            } else {
+                progressFill.classList.add("indeterminate");
+                progressLabel.textContent = "上传中…";
+            }
+        };
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                const body = JSON.parse(xhr.responseText);
+                currentTaskId = body.data.task_id;
+                try { localStorage.setItem("currentTaskId", String(currentTaskId)); } catch(e) {}
+                progressFill.style.width = "100%";
+                progressLabel.textContent = "100%";
+                statusText.textContent = window.I18N.t("controls.status.uploaded") + file.name;
+                document.getElementById("flowStep1").className = "done";
+                setStatus("idle", "status.ready");
+
+                // Update info
+                document.getElementById("infoTaskId").textContent = "#" + currentTaskId;
+                document.getElementById("infoVideo").textContent = file.name;
+                document.getElementById("infoPipeline").textContent = "File → FFmpeg → MediaMTX → YOLO → Tracker → Candidate";
+                document.getElementById("infoStream").textContent = "RTSP/HLS (640×360)";
+
+                showToast(window.I18N.t("toast.uploaded") + ": " + file.name, "success");
+
+                // Auto start
+                if (autostartCheck.checked) {
+                    setTimeout(() => startPipeline(), 500);
+                } else {
+                    startBtn.disabled = false;
+                }
+            } else {
+                handleUploadError(xhr, file);
+            }
+            uploadBtn.disabled = false;
+            // Re-enable re-upload
+            setTimeout(() => { progressTrack.style.display = "none"; progressLabel.style.display = "none"; }, 2000);
+        };
+        xhr.onerror = () => {
+            handleUploadError({ status: 0, responseText: "Network error" }, file);
+            uploadBtn.disabled = false;
+        };
+        xhr.send(formData);
+    }
+
+    function handleUploadError(xhr, file) {
+        let msg = "Upload failed";
+        try { const b = JSON.parse(xhr.responseText); msg = b.error?.message || msg; } catch(e) {}
+        showToast(msg, "error");
+        statusText.textContent = window.I18N.t("controls.status.uploadFailed") + ": " + file.name;
+        setStatus("error", "status.error");
+        progressFill.classList.add("indeterminate");
+        progressLabel.textContent = "失败";
+    }
+
+    // --- Start ---
+    startBtn.addEventListener("click", startPipeline);
+    function startPipeline() {
+        if (!currentTaskId) return;
+        startBtn.disabled = true;
+        statusText.textContent = window.I18N.t("controls.status.starting");
+        setStatus("warn", "status.starting");
+        document.getElementById("flowStep2").className = "doing";
+        progressTrack.style.display = "block";
+        progressFill.classList.add("indeterminate");
+        progressLabel.style.display = "block";
+        progressLabel.textContent = "启动中…";
+
+        fetch("/api/analysis-tasks/" + currentTaskId + "/start-pipeline", { method: "POST" })
+            .then(r => r.json().then(body => ({ ok: r.ok, status: r.status, body })))
+            .then(({ ok, status, body }) => {
+                if (!ok) throw new Error(body.error?.message || "Start failed (HTTP " + status + ")");
+                isRunning = true;
+                stopBtn.disabled = false;
+                document.getElementById("flowStep2").className = "done";
+                document.getElementById("flowStep3").className = "doing";
+                setStatus("live", "status.live");
+                statusText.textContent = window.I18N.t("controls.status.running");
+                progressTrack.style.display = "none";
+                progressLabel.style.display = "none";
+                // Show preview
+                placeholder.style.display = "none";
+                detectionPreview.style.display = "block";
+                videoOverlay.style.display = "flex";
+                previewError.style.display = "none";
+                previewRetryCount = 0;
+                detectionPreview.src = "/api/analysis-tasks/" + currentTaskId + "/detection-preview?_t=" + Date.now();
+                // Handle preview load error
+                detectionPreview.onerror = function() {
+                    if (previewRetryCount < MAX_PREVIEW_RETRIES) {
+                        previewRetryCount++;
+                        setTimeout(() => {
+                            detectionPreview.src = "/api/analysis-tasks/" + currentTaskId + "/detection-preview?_t=" + Date.now();
+                        }, 2000);
+                    } else {
+                        detectionPreview.style.display = "none";
+                        previewError.style.display = "flex";
+                    }
+                };
+                detectionPreview.onload = function() {
+                    previewError.style.display = "none";
+                };
+                startPolling();
+                showToast(window.I18N.t("toast.started"), "success");
+            })
+            .catch(err => {
+                showToast(err.message, "error");
+                startBtn.disabled = false;
+                setStatus("error", "status.error");
+                statusText.textContent = window.I18N.t("controls.status.startFailed") + ": " + err.message;
+                progressTrack.style.display = "none";
+                progressLabel.style.display = "none";
+                document.getElementById("flowStep2").className = "";
+            });
+    }
+
+    // --- Retry preview ---
+    retryPreviewBtn.addEventListener("click", () => {
+        previewError.style.display = "none";
+        detectionPreview.style.display = "block";
+        previewRetryCount = 0;
+        detectionPreview.src = "/api/analysis-tasks/" + currentTaskId + "/detection-preview?_t=" + Date.now();
+        detectionPreview.onerror = function() {
+            if (previewRetryCount < MAX_PREVIEW_RETRIES) {
+                previewRetryCount++;
+                setTimeout(() => {
+                    detectionPreview.src = "/api/analysis-tasks/" + currentTaskId + "/detection-preview?_t=" + Date.now();
+                }, 2000);
+            } else {
+                detectionPreview.style.display = "none";
+                previewError.style.display = "flex";
+            }
+        };
+    });
+
+    // --- Stop ---
+    stopBtn.addEventListener("click", () => {
+        if (!currentTaskId) return;
+        stopBtn.disabled = true;
+        statusText.textContent = window.I18N.t("controls.status.stopping");
+        setStatus("warn", "status.stopping");
+        fetch("/api/analysis-tasks/" + currentTaskId + "/stop-pipeline", { method: "POST" })
+            .then(r => r.json().then(b => ({ ok: r.ok, status: r.status, body: b })))
+            .then(({ ok, status, body }) => {
+                if (!ok) throw new Error(body.error?.message || "Stop failed (HTTP " + status + ")");
+                isRunning = false;
+                stopPolling();
+                startBtn.disabled = false;
+                setStatus("idle", "status.idle");
+                statusText.textContent = window.I18N.t("controls.status.stopped");
+                document.getElementById("flowStep3").className = "";
+                // Keep preview as last frame
+                showToast(window.I18N.t("toast.stopped"), "info");
+            })
+            .catch(err => {
+                showToast(err.message, "error");
+                stopBtn.disabled = false;
+            });
+    });
+
+    // --- Polling ---
+    function startPolling() {
+        stopPolling();
+        pollInterval = setInterval(pollMetrics, 1000);
+    }
+    function stopPolling() {
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    }
+    async function pollMetrics() {
+        if (!currentTaskId || !isRunning) return;
+        try {
+            const res = await fetch("/api/analysis-tasks/" + currentTaskId + "/runtime");
+            if (!res.ok) return;
+            const body = await res.json();
+            if (!body.success) return;
+            const d = body.data, inf = d.inference || {}, tr = d.tracker || {}, ca = d.candidate || {};
+
+            document.getElementById("mFps").innerHTML = (inf.inference_fps != null ? inf.inference_fps.toFixed(1) : "--") + '<span class="unit">fps</span>';
+            document.getElementById("mP95").innerHTML = (inf.end_to_end_p95_ms != null ? inf.end_to_end_p95_ms.toFixed(1) : "--") + '<span class="unit">ms</span>';
+            document.getElementById("mProcessed").textContent = inf.processed_frames ?? "--";
+            document.getElementById("mDropped").textContent = inf.stale_frames_discarded ?? "--";
+            document.getElementById("mPipeline").textContent = "Pre: " + (inf.preprocess_ms ?? "--") + "ms / Inf: " + (inf.inference_ms ?? "--") + "ms / Post: " + (inf.postprocess_ms ?? "--") + "ms";
+
+            document.getElementById("overlayFps").textContent = (inf.inference_fps ?? 0).toFixed(1) + " FPS";
+            document.getElementById("overlayFrame").textContent = "Frame " + (inf.last_frame_index ?? 0);
+            document.getElementById("mActiveTracks").textContent = tr.active_tracks ?? "--";
+            document.getElementById("mConfirmedTracks").textContent = tr.confirmed_tracks ?? "--";
+            document.getElementById("mTentativeTracks").textContent = tr.tentative_tracks ?? "--";
+            document.getElementById("mTotalTracks").textContent = tr.total_tracks_created ?? "--";
+            document.getElementById("overlayTracks").textContent = (tr.active_tracks ?? 0) + " tracks";
+            document.getElementById("mTotalEvents").textContent = ca.total_events ?? "--";
+            document.getElementById("mActiveRois").textContent = ca.active_rois ?? "--";
+        } catch (e) { /* ignore */ }
+    }
+
+    // Rehydrate: if ?task_id= in URL, or localStorage has one, restore state from backend
+    async function rehydrateFromTask(taskId) {
+        try {
+            const detailRes = await fetch("/api/analysis-tasks/" + taskId);
+            const detailBody = await detailRes.json();
+            if (!detailRes.ok || !detailBody.success) return false;
+            const task = detailBody.data;
+            currentTaskId = task.id;
+            try { localStorage.setItem("currentTaskId", String(task.id)); } catch(e) {}
+
+            document.getElementById("infoTaskId").textContent = "#" + task.id;
+            document.getElementById("infoVideo").textContent = task.name || "";
+            document.getElementById("infoPipeline").textContent = "File → FFmpeg → MediaMTX → YOLO → Tracker → Candidate";
+            document.getElementById("infoStream").textContent = "RTSP/HLS (640×360)";
+            document.getElementById("flowStep1").className = "done";
+
+            // Ask runtime for live status
+            const rtRes = await fetch("/api/analysis-tasks/" + task.id + "/runtime");
+            if (rtRes.ok) {
+                const rtBody = await rtRes.json();
+                const runStatus = rtBody.data && rtBody.data.status ? rtBody.data.status : "created";
+                if (runStatus === "running" || runStatus === "starting") {
+                    // Pipeline is live: switch to running UI
+                    isRunning = true;
+                    setStatus("live", "status.live");
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    document.getElementById("flowStep2").className = "done";
+                    document.getElementById("flowStep3").className = "active";
+                    placeholder.style.display = "none";
+                    detectionPreview.style.display = "block";
+                    videoOverlay.style.display = "flex";
+                    previewError.style.display = "none";
+                    previewRetryCount = 0;
+                    detectionPreview.src = "/api/analysis-tasks/" + task.id + "/detection-preview?_t=" + Date.now();
+                    detectionPreview.onerror = function() {
+                        if (previewRetryCount < MAX_PREVIEW_RETRIES) {
+                            previewRetryCount++;
+                            setTimeout(() => {
+                                detectionPreview.src = "/api/analysis-tasks/" + task.id + "/detection-preview?_t=" + Date.now();
+                            }, 2000);
+                        } else {
+                            detectionPreview.style.display = "none";
+                            previewError.style.display = "flex";
+                        }
+                    };
+                    detectionPreview.onload = function() { previewError.style.display = "none"; };
+                    startPolling();
+                    showToast(window.I18N.t("restore.toast") + task.id + " (" + window.I18N.t("recent.item.running") + ")", "success");
+                } else {
+                    // Task exists but not running: enable start button
+                    startBtn.disabled = false;
+                    setStatus("idle", "status.ready");
+                    statusText.textContent = window.I18N.t("controls.status.ready");
+                    showToast(window.I18N.t("restore.toast") + task.id, "info");
+                }
+            } else {
+                startBtn.disabled = false;
+                setStatus("idle", "status.ready");
+            }
+            return true;
+        } catch (e) {
+            console.warn("rehydrate failed", e);
+            return false;
+        }
+    }
+
+    (function tryRehydrate() {
+        const params = new URLSearchParams(window.location.search);
+        const urlTaskId = params.get("task_id");
+        let taskId = urlTaskId ? parseInt(urlTaskId, 10) : null;
+        if (!taskId) {
+            try {
+                const stored = localStorage.getItem("currentTaskId");
+                if (stored) taskId = parseInt(stored, 10);
+            } catch(e) {}
+        }
+        if (taskId && !isNaN(taskId)) {
+            rehydrateFromTask(taskId);
+        } else if (currentTaskId) {
+            startBtn.disabled = false;
+            document.getElementById("infoTaskId").textContent = "#" + currentTaskId;
+            statusText.textContent = window.I18N.t("controls.status.ready");
+        }
+    })();
+})();
+</script>
+{% endblock %}
+

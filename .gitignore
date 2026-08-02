@@ -1,4 +1,4 @@
-# 字节编译生成的Python文件
+﻿# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -10,19 +10,36 @@ build/
 venv/
 env/
 
-# 敏感配置（永远不提交）
+# 敏感配置
 .env
 .env.local
 
-# 数据目录（上传文件、向量库、存储、数据库）
+# 数据目录（上传文件、向量库、数据库）
 data/
 *.db
 *.sqlite
 
-# 模型权重（大文件）
-model_weights/*.pt
-model_weights/*.onnx
-model_weights/*.bin
+# 模型权重（大文件，从官方下载）
+*.pt
+*.onnx
+*.bin
+model_weights/
+
+# 日志
+logs/
+*.log
+
+# 测试文件（本地私有）
+tests/
+
+# 测试报告产物（截图等，文档保留 markdown）
+docs/测试报告/playwright_artifacts/
+
+# Planning 临时文件
+task_plan.md
+findings.md
+progress.md
+.planning/
 
 # IDE
 .vscode/
@@ -37,5 +54,12 @@ Thumbs.db
 
 # 临时文件
 *.tmp
-*.log
 temp/
+instance/
+
+# Chroma 向量库
+chroma_data/
+*.chroma
+
+# Flask 实例
+instance/

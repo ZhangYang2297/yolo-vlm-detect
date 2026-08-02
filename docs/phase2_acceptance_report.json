@@ -1,0 +1,61 @@
+{
+  "test_type": "phase2_acceptance_hls",
+  "date": "2026-07-21T11:04:26.898837",
+  "duration_seconds": 30,
+  "pipeline": "File -> FFmpeg -> MediaMTX(RTSP) -> HLS -> OpenCV -> YOLO -> Tracker -> Candidate",
+  "model": "C:\\Users\\admin\\Documents\\yolo-vlm-detct\\model_weights\\yolov8n.pt",
+  "device": "cpu",
+  "half": false,
+  "total_frames": 746,
+  "processed_frames": 548,
+  "failed_frames": 0,
+  "stale_frames_discarded": 165,
+  "inference_fps": 18.23880011390516,
+  "end_to_end_p95_ms": 88.989,
+  "preprocess_ms": 0.0,
+  "inference_ms": 54.840803146362305,
+  "postprocess_ms": 0.0,
+  "person_count": 7,
+  "active_tracks": 9,
+  "total_tracks": 123,
+  "total_events": 34,
+  "active_rois": 1,
+  "metrics_log": [
+    {
+      "frame": 150,
+      "processed": 90,
+      "fps": 14.74,
+      "active_tracks": 12,
+      "total_events": 4,
+      "p95_ms": 88.771,
+      "inference_fps": 14.82048277936077
+    },
+    {
+      "frame": 300,
+      "processed": 206,
+      "fps": 16.94,
+      "active_tracks": 16,
+      "total_events": 11,
+      "p95_ms": 86.684,
+      "inference_fps": 16.989610184048683
+    },
+    {
+      "frame": 450,
+      "processed": 320,
+      "fps": 17.63,
+      "active_tracks": 14,
+      "total_events": 26,
+      "p95_ms": 86.108,
+      "inference_fps": 17.675171297694053
+    },
+    {
+      "frame": 600,
+      "processed": 435,
+      "fps": 17.98,
+      "active_tracks": 13,
+      "total_events": 30,
+      "p95_ms": 88.95400000000001,
+      "inference_fps": 18.026059294123815
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+<div class="sidebar-panel{% if active %} active{% endif %}" id="panel-info">
+    <div class="metric-group">
+        <div class="metric-group-title">System</div>
+        <div class="metric-grid">
+            <div class="metric-item full">
+                <div class="label">Task ID</div>
+                <div class="sub" id="infoTaskId">--</div>
+            </div>
+            <div class="metric-item full">
+                <div class="label">Video</div>
+                <div class="sub" id="infoVideo">--</div>
+            </div>
+            <div class="metric-item full">
+                <div class="label">Pipeline</div>
+                <div class="sub" id="infoPipeline">--</div>
+            </div>
+            <div class="metric-item full">
+                <div class="label">Model</div>
+                <div class="sub" id="infoModel">YOLOv8n (CPU)</div>
+            </div>
+            <div class="metric-item full">
+                <div class="label">Stream</div>
+                <div class="sub" id="infoStream">--</div>
+            </div>
+        </div>
+    </div>
+    {% block extra_info %}{% endblock %}
+</div>

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}实时处理 - {{ task.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="mb-1">{{ task.name }}</h4>
+        <div class="text-muted small">阶段二切片 C：集中式 YOLO 推理、检测、跟踪与轨迹可视化</div>
+    </div>
+    <a href="/tasks" class="btn btn-outline-secondary btn-sm">返回任务</a>
+</div>
+
+<div class="alert alert-info py-2 small">
+    当前是 MJPEG 调试预览，用于观察 AI 处理链路；正式低延迟预览后续仍使用 MediaMTX WebRTC/HLS。
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card bg-dark">
+            <div class="card-body p-2 text-center">
+                <img id="preview" src="/api/analysis-tasks/{{ task.id }}/detection-preview"
+                     alt="YOLO 检测画面" class="img-fluid" style="max-height: 68vh;">
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">Capture Worker</div>
+            <div class="card-body">
+                <dl class="row small mb-0">
+                    <dt class="col-6">状态</dt><dd class="col-6" id="status">读取中</dd>
+                    <dt class="col-6">捕获帧数</dt><dd class="col-6" id="captured">-</dd>
+                    <dt class="col-6">背压丢帧</dt><dd class="col-6" id="dropped">-</dd>
+                    <dt class="col-6">重连次数</dt><dd class="col-6" id="reconnects">-</dd>
+                    <dt class="col-6">缓冲帧数</dt><dd class="col-6" id="buffer">-</dd>
+                    <dt class="col-6">最近帧</dt><dd class="col-6 text-break" id="last-frame">-</dd>
+                </dl>
+                <div id="runtime-error" class="alert alert-danger mt-3 mb-0 d-none"></div>
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header">Inference Worker</div>
+            <div class="card-body">
+                <dl class="row small mb-0">
+                    <dt class="col-6">检测人数</dt><dd class="col-6" id="person-count">-</dd>
+                    <dt class="col-6">已处理帧</dt><dd class="col-6" id="processed">-</dd>
+                    <dt class="col-6">推理 FPS</dt><dd class="col-6" id="inference-fps">-</dd>
+                    <dt class="col-6">预处理</dt><dd class="col-6" id="preprocess-ms">-</dd>
+                    <dt class="col-6">模型推理</dt><dd class="col-6" id="inference-ms">-</dd>
+                    <dt class="col-6">后处理</dt><dd class="col-6" id="postprocess-ms">-</dd>
+                    <dt class="col-6">端到端</dt><dd class="col-6" id="end-to-end-ms">-</dd>
+                    <dt class="col-6">端到端 P95</dt><dd class="col-6" id="p95-ms">-</dd>
+                    <dt class="col-6">推理丢旧帧</dt><dd class="col-6" id="stale-frames">-</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header">Candidate Events</div>
+            <div class="card-body">
+                <dl class="row small mb-0">
+                    <dt class="col-6">累计事件</dt><dd class="col-6" id="total-events">-</dd>
+                    <dt class="col-6">活跃ROI</dt><dd class="col-6" id="active-rois">-</dd>
+                    <dt class="col-6">冷却中轨迹</dt><dd class="col-6" id="cooldown-tracks">-</dd>
+                </dl>
+                <div id="event-list" class="mt-2 small" style="max-height:150px;overflow-y:auto"></div>
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header">Tracker</div>
+            <div class="card-body">
+                <dl class="row small mb-0">
+                    <dt class="col-6">活跃轨迹</dt><dd class="col-6" id="active-tracks">-</dd>
+                    <dt class="col-6">已确认</dt><dd class="col-6" id="confirmed-tracks">-</dd>
+                    <dt class="col-6">暂定</dt><dd class="col-6" id="tentative-tracks">-</dd>
+                    <dt class="col-6">累计创建</dt><dd class="col-6" id="total-tracks">-</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function refreshRuntime() {
+    try {
+        const response = await fetch('/api/analysis-tasks/{{ task.id }}/runtime');
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error?.message || '运行状态读取失败');
+        const data = body.data;
+        document.getElementById('status').textContent = data.status;
+        document.getElementById('captured').textContent = data.captured_frames;
+        document.getElementById('dropped').textContent = data.dropped_frames;
+        document.getElementById('reconnects').textContent = data.reconnects;
+        document.getElementById('buffer').textContent = data.buffer_size;
+        document.getElementById('last-frame').textContent = data.last_frame_at || '-';
+        const inference = data.inference || {};
+        const formatMs = value => value == null ? '-' : `${Number(value).toFixed(2)} ms`;
+        document.getElementById('person-count').textContent = inference.person_count ?? '-';
+        document.getElementById('processed').textContent = inference.processed_frames ?? '-';
+        document.getElementById('inference-fps').textContent = inference.inference_fps == null ? '-' : Number(inference.inference_fps).toFixed(2);
+        document.getElementById('preprocess-ms').textContent = formatMs(inference.preprocess_ms);
+        document.getElementById('inference-ms').textContent = formatMs(inference.inference_ms);
+        document.getElementById('postprocess-ms').textContent = formatMs(inference.postprocess_ms);
+        document.getElementById('end-to-end-ms').textContent = formatMs(inference.end_to_end_ms);
+        document.getElementById('p95-ms').textContent = formatMs(inference.end_to_end_p95_ms);
+        document.getElementById('stale-frames').textContent = inference.stale_frames_discarded ?? '-';
+        const tracker = data.tracker || {};
+        document.getElementById('active-tracks').textContent = tracker.active_tracks ?? '-';
+        document.getElementById('confirmed-tracks').textContent = tracker.confirmed_tracks ?? '-';
+        document.getElementById('tentative-tracks').textContent = tracker.tentative_tracks ?? '-';
+        document.getElementById('total-tracks').textContent = tracker.total_tracks_created ?? '-';
+        const errorBox = document.getElementById('runtime-error');
+        errorBox.classList.toggle('d-none', !data.last_error);
+        errorBox.textContent = data.last_error || '';
+    } catch (error) {
+        const errorBox = document.getElementById('runtime-error');
+        errorBox.classList.remove('d-none');
+        errorBox.textContent = error.message;
+    }
+}
+refreshRuntime();
+setInterval(refreshRuntime, 1000);
+</script>
+{% endblock %}

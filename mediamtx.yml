@@ -1,1 +1,5 @@
-# 默认配置
+logLevel: info
+
+paths:
+  pedestrian:
+    source: publisher
